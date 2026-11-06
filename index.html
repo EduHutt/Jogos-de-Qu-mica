@@ -1,0 +1,1331 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Duelo Químico</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: caderno de laboratório em papel milimetrado, uma coluna de celular.
+   Cada jogador é uma "casa" da tabela periódica; a vida são 5 tubos de ensaio. */
+:root{
+  --bg:#EAF0F3; --grid:#DCE5EA; --surface:#FFFFFF; --ink:#12263A; --muted:#55697A; --line:#C3D1DA;
+  --p1:#2F5BEA; --p2:#E8A100; --ok:#138A52; --bad:#C23B26;
+  --btn-bg:#12263A; --btn-fg:#FFFFFF; --tube-line:#6B7F8F;
+  --s-wall:#F8FAFB; --s-floor:#D5E0E7; --s-board:#1E3A3F; --s-chalk:#EAF2F0; --s-wood:#C9A27A; --s-wood2:#A9835C;
+  --s-door:#6F8CA6; --s-doorframe:#41586D; --s-metal:#9AA9B5; --s-open:#0B1620; --acid:#A3D921;
+  --font-display:'Bricolage Grotesque',system-ui,sans-serif;
+  --font-body:'Instrument Sans',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1B26; --grid:#1A2C3C; --surface:#162636; --ink:#E7EEF5; --muted:#93A6B6; --line:#2B4157;
+    --p1:#7B97FF; --p2:#F2B63A; --ok:#4CC38A; --bad:#FF7A66;
+    --btn-bg:#E7EEF5; --btn-fg:#0F1B26; --tube-line:#7C93A6; color-scheme:dark;
+    --s-wall:#1C3043; --s-floor:#122130; --s-board:#14302F; --s-chalk:#E2EDEA; --s-wood:#8E6D4C; --s-wood2:#6F5239;
+    --s-door:#4A6A86; --s-doorframe:#2D4357; --s-metal:#7E92A3; --s-open:#050B10; --acid:#B7F03C;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1B26; --grid:#1A2C3C; --surface:#162636; --ink:#E7EEF5; --muted:#93A6B6; --line:#2B4157;
+  --p1:#7B97FF; --p2:#F2B63A; --ok:#4CC38A; --bad:#FF7A66;
+  --btn-bg:#E7EEF5; --btn-fg:#0F1B26; --tube-line:#7C93A6; color-scheme:dark;
+  --s-wall:#1C3043; --s-floor:#122130; --s-board:#14302F; --s-chalk:#E2EDEA; --s-wood:#8E6D4C; --s-wood2:#6F5239;
+  --s-door:#4A6A86; --s-doorframe:#2D4357; --s-metal:#7E92A3; --s-open:#050B10; --acid:#B7F03C;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  margin:0;
+  padding-block:16px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  background-color:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  color:var(--ink);
+  font:400 16px/1.5 var(--font-body);
+}
+main{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.stack{display:flex;flex-direction:column;gap:16px}
+h1,h2,p{margin:0}
+h1,h2,.qtext,.pname,.fbt,.btn{font-family:var(--font-display)}
+h1{font-size:clamp(36px,10vw,52px);line-height:1;letter-spacing:-.025em;font-weight:800;text-wrap:balance}
+h2{font-size:clamp(28px,8vw,38px);line-height:1.05;letter-spacing:-.02em;font-weight:800;text-wrap:balance}
+.lead{color:var(--muted);max-width:44ch}
+sub{font-size:.7em;line-height:0;vertical-align:baseline;position:relative;top:.3em}
+:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
+
+/* cabeçalho com a "casa" do elemento Dq, número atômico 5 = vida inicial */
+.brand{display:flex;align-items:center;gap:12px}
+.tile-mark{position:relative;width:46px;height:46px;border:2px solid var(--ink);border-radius:5px;display:grid;place-items:center;background:var(--surface);font:800 19px var(--font-display);letter-spacing:-.02em}
+.tile-mark .z{position:absolute;top:2px;left:4px;font:700 9px var(--font-mono)}
+.eyebrow,.bname{font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.snd{flex:none;min-height:36px;padding:0 12px;border:2px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:500 12px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.rules{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px;counter-reset:r}
+.rules li{counter-increment:r;display:flex;gap:12px;align-items:baseline;min-width:0}
+.rules li::before{content:counter(r);flex:none;font:700 13px var(--font-mono);width:22px;height:22px;display:grid;place-items:center;border:2px solid var(--ink);border-radius:4px}
+
+.names{display:grid;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;--pc:var(--p1)}
+.field[data-p="1"]{--pc:var(--p2)}
+.field span{display:flex;align-items:center;gap:8px;font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field span::before{content:"";width:12px;height:12px;border-radius:3px;background:var(--pc)}
+.field input{width:100%;min-height:50px;padding:0 14px;border:2px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:500 17px var(--font-body)}
+.field input:focus{border-color:var(--pc)}
+
+.btn{width:100%;min-height:54px;padding:0 20px;border:0;border-radius:10px;background:var(--btn-bg);color:var(--btn-fg);font-weight:700;font-size:17px;cursor:pointer}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+
+/* dados */
+.dice{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dcol{--pc:var(--p1);display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 8px;min-width:0;border:2px solid var(--line);border-radius:12px;background:var(--surface)}
+.dcol[data-p="1"]{--pc:var(--p2)}
+.dcol.win{border-color:var(--pc);box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 28%,transparent)}
+.dn{font:700 16px var(--font-display);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.die{width:92px;height:92px;padding:12px;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);gap:2px;border:3px solid var(--ink);border-radius:16px;background:var(--bg)}
+.die i{border-radius:50%}
+.die i.on{background:var(--pc)}
+.die.rolling{animation:wob .16s infinite alternate}
+.dv{font:700 22px var(--font-mono)}
+@keyframes wob{from{transform:rotate(-8deg) translateY(-2px)}to{transform:rotate(8deg) translateY(2px)}}
+
+/* jogadores e tubos de vida */
+.players{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pl{--pc:var(--p1);display:flex;flex-direction:column;gap:10px;min-width:0;padding:10px 12px;border:2px solid var(--line);border-radius:8px;background:var(--surface);transition:border-color .2s,box-shadow .2s}
+.pl[data-p="1"]{--pc:var(--p2)}
+.pl.active{border-color:var(--pc);box-shadow:0 0 0 3px color-mix(in srgb,var(--pc) 28%,transparent)}
+.pl.hit{animation:shake .5s}
+.phead{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.pname{font-weight:700;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hp{font:700 13px var(--font-mono);color:var(--muted);flex:none}
+.tubes{display:flex;gap:5px;align-items:flex-end}
+.tube{position:relative;width:15px;height:36px;overflow:hidden;border:2px solid var(--tube-line);border-radius:2px 2px 9px 9px}
+.tube i{position:absolute;left:0;right:0;bottom:0;height:100%;background:var(--pc);transition:height .5s ease .1s}
+.tube.empty i{height:0}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+
+/* pergunta */
+.card{display:flex;flex-direction:column;gap:14px;padding:16px;border:2px solid var(--line);border-radius:12px;background:var(--surface)}
+.who{display:flex;align-items:center;gap:8px;font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);min-width:0}
+.who b{color:var(--ink);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{flex:none;width:12px;height:12px;border-radius:3px}
+.qtext{font-weight:600;font-size:clamp(20px,5.6vw,24px);line-height:1.25;text-wrap:balance}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:10px 14px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:500 17px/1.3 var(--font-body);text-align:left;cursor:pointer}
+.opt.fm .otx{font:700 18px var(--font-mono)}
+.opt .ltr{flex:none;width:30px;height:30px;display:grid;place-items:center;border:2px solid var(--ink);border-radius:5px;font:700 13px var(--font-mono)}
+.opt .otx{min-width:0;overflow-wrap:anywhere}
+.opt:not(:disabled):active{transform:scale(.99)}
+.opt:disabled{color:var(--ink);cursor:default}
+.opt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 16%,var(--surface))}
+.opt.ok .ltr{border-color:var(--ok);background:var(--ok);color:var(--surface)}
+.opt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--surface))}
+.opt.bad .ltr{border-color:var(--bad);background:var(--bad);color:var(--surface)}
+.opt.dim{opacity:.5}
+
+.fb{display:flex;flex-direction:column;gap:10px;padding:16px;border:2px solid var(--line);border-radius:12px;background:var(--surface)}
+.fb.ok{border-color:var(--ok)}
+.fb.bad{border-color:var(--bad)}
+.fbt{font-weight:800;font-size:24px;letter-spacing:-.01em}
+.fb.ok .fbt{color:var(--ok)}
+.fb.bad .fbt{color:var(--bad)}
+.fbe{color:var(--muted)}
+
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .hp{font-size:14px}
+
+.sp{flex:1}
+@media (max-width:459px){.bname{display:none}}
+
+/* início: banner ilustrado e escolha do jogo */
+.banner{display:block;width:100%;padding:0;border:2px solid var(--ink);border-radius:14px;overflow:hidden;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font:inherit}
+.banner svg{display:block;width:100%;height:auto}
+.b-bg{fill:var(--surface)}
+.b-grid{fill:none;stroke:var(--grid);stroke-width:1}
+.b-tile{fill:var(--bg);stroke:var(--ink);stroke-width:2.5}
+.b-sym{font:800 28px var(--font-display);fill:var(--ink)}
+.b-num{font:700 10px var(--font-mono);fill:var(--muted)}
+.b-title{font:800 46px var(--font-display);letter-spacing:-.02em;fill:var(--ink)}
+.b-glass{fill:none;stroke:var(--ink);stroke-width:3;stroke-linejoin:round}
+.b-liq1{fill:var(--p1)}
+.b-bub{fill:var(--p2);stroke:var(--ink);stroke-width:2}
+.banner-hint{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--btn-bg);color:var(--btn-fg);font:700 13px var(--font-mono);letter-spacing:.08em;text-transform:uppercase}
+.modes{display:flex;flex-direction:column;gap:12px}
+.mode{display:flex;flex-direction:column;gap:10px;width:100%;padding:16px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;font:inherit;animation:rise .45s both}
+.mode:nth-child(2){animation-delay:.08s}
+.mode:nth-child(3){animation-delay:.16s}
+.mode:hover{border-color:var(--ink)}
+.mode:active{transform:scale(.99)}
+.mode-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mode-name{font:800 26px/1.1 var(--font-display);letter-spacing:-.015em}
+.mode-desc{color:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:3px 8px;border:2px solid var(--line);border-radius:6px;font:700 11px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ic-line{fill:none;stroke:var(--ink);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.ic-fill1{fill:var(--p1)}
+.ic-fill2{fill:var(--p2)}
+.ic-acid{fill:var(--acid);stroke:var(--ink);stroke-width:2.5;stroke-linejoin:round}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* escape da sala */
+.ebar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:2px solid var(--ink);border-radius:10px;background:var(--surface)}
+.eprog{text-align:right}
+.elabel{font:500 11px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.etime{font:700 30px/1.1 var(--font-mono);font-variant-numeric:tabular-nums}
+.etime.low{color:var(--bad)}
+.scene{overflow:hidden;border:2px solid var(--line);border-radius:12px;background:var(--s-wall)}
+.scene svg{display:block;width:100%;height:auto}
+.emsg{min-height:54px;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--surface)}
+.inv{display:flex;align-items:center;gap:12px;padding:10px 14px;border:2px solid var(--ok);border-radius:10px;background:var(--surface);font-weight:600}
+.s-wall{fill:var(--s-wall)}
+.s-floor{fill:var(--s-floor)}
+.s-base{stroke:var(--line);stroke-width:2}
+.s-board{fill:var(--s-board)}
+.s-chalk{fill:var(--s-chalk);font:700 20px var(--font-mono);text-anchor:middle}
+.s-chalk.s-small{font-size:11px;font-weight:500;letter-spacing:.06em}
+.s-wood{fill:var(--s-wood)}
+.s-wood2{fill:var(--s-wood2)}
+.s-drawer{stroke:var(--s-wood);stroke-width:2;fill:none}
+.s-glass{fill:none;stroke:var(--ink);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.s-l1{fill:var(--p1)}
+.s-l2{fill:var(--p2)}
+.s-paper{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
+.s-exit{font:700 11px var(--font-mono);fill:var(--ok);letter-spacing:.12em;text-anchor:middle}
+.s-doorframe{fill:var(--s-doorframe)}
+.s-open{fill:var(--s-open)}
+.s-door{fill:var(--s-door)}
+.s-doorin{fill:none;stroke:var(--s-doorframe);stroke-width:3}
+.s-knob{fill:var(--s-metal);stroke:var(--ink);stroke-width:1.5}
+.s-lock{fill:var(--s-metal);stroke:var(--ink);stroke-width:2}
+.s-shackle{fill:none;stroke:var(--ink);stroke-width:4;stroke-linecap:round}
+.s-key{fill:var(--ink)}
+.hs{cursor:pointer;outline:none}
+.hs-ring{fill:transparent;stroke:var(--p1);stroke-width:2.5;stroke-dasharray:6 5}
+.hs:hover .hs-ring,.hs:focus-visible .hs-ring{stroke-width:4}
+.badge{opacity:0;transition:opacity .3s}
+.badge circle{fill:var(--ok)}
+.badge path{fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.done .badge{opacity:1}
+.done .hs-ring{stroke:transparent}
+#hs2 .hs-ring{opacity:.5}
+#hs2.ready .hs-ring{stroke:var(--acid);stroke-dasharray:none;opacity:1;animation:pulse .9s infinite alternate}
+@keyframes pulse{from{stroke-width:2}to{stroke-width:6}}
+#door-panel{transform-box:view-box;transform-origin:212px 0;transition:transform 1s ease}
+#scene.open #door-panel{transform:scaleX(.16)}
+#hs2{transform-box:fill-box;transform-origin:50% 0}
+#hs2.melt{animation:melt 1.3s ease-in forwards;pointer-events:none}
+@keyframes melt{0%{opacity:1;transform:none}60%{opacity:.8;transform:scaleY(.85)}100%{opacity:0;transform:translateY(14px) scaleY(.2)}}
+.bub{fill:var(--acid);stroke:var(--ink);stroke-width:1;opacity:0}
+#scene.fizz .bub{animation:bub 1.1s ease-out infinite}
+@keyframes bub{0%{opacity:.95;transform:translateY(0)}100%{opacity:0;transform:translateY(-28px)}}
+
+.eqline{padding:14px;border:2px solid var(--ink);border-radius:10px;background:var(--surface);font:700 clamp(18px,5.4vw,24px)/1.5 var(--font-mono);text-align:center;overflow-wrap:anywhere}
+.cgroup{display:flex;flex-direction:column;gap:8px}
+.cgroup h3{margin:0;font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.crow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 8px 8px 14px;border:2px solid var(--line);border-radius:10px;background:var(--surface)}
+.cf{font:700 20px var(--font-mono);min-width:0;overflow-wrap:anywhere}
+.step{display:flex;align-items:center;gap:6px;flex:none}
+.step button{width:46px;height:46px;border:2px solid var(--ink);border-radius:8px;background:var(--bg);color:var(--ink);font:700 22px var(--font-mono);cursor:pointer}
+.step button:active{transform:scale(.95)}
+.step output{min-width:34px;text-align:center;font:700 22px var(--font-mono)}
+.atoms{display:flex;flex-wrap:wrap;gap:8px}
+.atom{padding:6px 10px;border:2px solid var(--line);border-radius:8px;font:700 14px var(--font-mono);color:var(--ink)}
+.atom.ok{border-color:var(--ok)}
+.atom.no{border-color:var(--bad)}
+.pzmsg{min-height:1.5em}
+.pzmsg.ok{color:var(--ok);font-weight:600}
+.pzmsg.no{color:var(--bad);font-weight:600}
+
+/* famílias periódicas */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.lvls{display:flex;flex-direction:column;gap:10px}
+.lvl{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:72px;padding:12px 16px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;font:inherit}
+.lvl:hover{border-color:var(--ink)}
+.lvl:active{transform:scale(.99)}
+.lvl b{display:block;font:800 22px/1.1 var(--font-display);letter-spacing:-.01em}
+.lvl .d{display:block;margin-top:2px;color:var(--muted);font-size:14px}
+.lvl .n{flex:none;display:grid;place-items:center;width:46px;height:46px;border:2px solid var(--ink);border-radius:6px;font:800 22px var(--font-display)}
+.fbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:11;display:flex;align-items:center;gap:12px;padding:8px 12px;border:2px solid var(--ink);border-radius:10px;background:var(--surface)}
+.fsel{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.fseltile{flex:none;width:44px;height:44px;display:grid;place-items:center;border:2px dashed var(--line);border-radius:6px;font:800 20px var(--font-display);color:var(--muted)}
+.fseltile.on{border:2px solid var(--p1);color:var(--ink);background:color-mix(in srgb,var(--p1) 14%,var(--surface))}
+.fmsg{min-width:0;font-size:14px;line-height:1.3}
+.fstats{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font:700 11px var(--font-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
+.ftools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ftools .lv{margin-right:auto;font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sech{margin:0;font:500 12px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.pool{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.etile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:86px;padding:16px 4px 6px;border:2px solid var(--ink);border-radius:8px;background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;min-width:0}
+.etile .z{position:absolute;top:3px;left:6px;font:700 10px var(--font-mono);color:var(--muted)}
+.etile .s{font:800 28px/1 var(--font-display)}
+.etile .nm{max-width:100%;margin-top:3px;font-size:11px;line-height:1.1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.etile.sel{border-color:var(--p1);background:color-mix(in srgb,var(--p1) 14%,var(--surface));box-shadow:0 0 0 3px color-mix(in srgb,var(--p1) 30%,transparent);transform:translateY(-2px)}
+.etile.shake{animation:shake .45s}
+.bins{display:grid;grid-template-columns:repeat(var(--c,2),minmax(0,1fr));gap:10px}
+.bin{display:flex;flex-direction:column;gap:8px;min-width:0;min-height:132px;padding:10px;border:2px dashed var(--line);border-radius:10px;background:var(--surface);color:var(--ink);text-align:left;cursor:pointer;font:inherit}
+.bin.ready{border-color:var(--p1)}
+.bin.no{border-color:var(--bad);animation:shake .45s}
+.bin.done{border-style:solid;border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--surface))}
+.bin-top{display:flex;align-items:center;gap:8px}
+.gnum{flex:none;display:grid;place-items:center;min-width:34px;height:34px;padding:0 4px;border:2px solid var(--ink);border-radius:5px;font:800 15px var(--font-display)}
+.bin.done .gnum{border-color:var(--ok);background:var(--ok);color:var(--surface)}
+.gname{min-width:0;font:700 clamp(12px,3.5vw,15px)/1.15 var(--font-display);overflow-wrap:anywhere}
+.bin .gnum{min-width:30px;height:30px;font-size:14px}
+.gcount{flex:none;font:700 11px var(--font-mono);color:var(--muted)}
+.ghint{font-size:12px;line-height:1.3;color:var(--muted)}
+.foot{display:flex;align-items:flex-end;justify-content:space-between;gap:6px;margin-top:auto}
+.slots{display:flex;flex-wrap:wrap;gap:5px;min-width:0}
+.pe{display:flex;align-items:baseline;gap:4px;padding:3px 7px;border:2px solid var(--ok);border-radius:6px;background:var(--surface);font:800 15px var(--font-display);animation:rise .3s both}
+.pe small{font:500 11px var(--font-body);color:var(--muted)}
+.sum{display:flex;flex-direction:column;gap:8px}
+.sumrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border:2px solid var(--line);border-radius:10px;background:var(--surface)}
+.sumrow b{font:700 15px var(--font-display)}
+.sumel{font:500 13px var(--font-mono);color:var(--muted);overflow-wrap:anywhere}
+
+/* mini tabela periódica */
+.pt{display:flex;flex-direction:column;gap:8px;padding:10px;border:2px solid var(--line);border-radius:10px;background:var(--surface)}
+.pt-info{margin:0;min-height:2.6em;font-size:14px;line-height:1.3}
+.pt-info b{font:800 17px var(--font-display)}
+.pt-grid{display:grid;grid-template-columns:repeat(18,minmax(0,1fr));grid-template-rows:auto repeat(7,auto) 6px auto auto;gap:2px}
+.pt-h{align-self:end;text-align:center;font:700 8px/1.3 var(--font-mono);color:var(--muted)}
+.pt-c{aspect-ratio:1;display:grid;place-items:center;min-width:0;padding:0;border:1px solid var(--line);border-radius:3px;background:var(--bg);color:var(--muted);font:700 clamp(8px,2.4vw,11px)/1 var(--font-display);cursor:pointer;touch-action:manipulation}
+.pt-c.a{background:var(--surface);color:var(--ink);border-color:var(--tube-line)}
+.pt-c.fam{background:color-mix(in srgb,var(--p2) 30%,var(--surface));border-color:var(--p2)}
+.pt-c.sel{background:var(--p1);border-color:var(--p1);color:var(--btn-fg)}
+.pt-c:focus-visible{position:relative;z-index:1}
+.pt-note{margin:0;font-size:12px;color:var(--muted)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  #hs2.melt{opacity:0}
+}
+</style>
+
+</head>
+<body>
+<main>
+  <header class="brand">
+    <div class="tile-mark" aria-hidden="true"><span class="z">5</span>Dq</div>
+    <span class="bname">Química · 1º ano</span>
+    <span class="sp"></span>
+    <button class="snd" id="btn-menu" type="button" hidden>Menu</button>
+    <button class="snd" id="btn-snd" type="button" aria-pressed="true">Som: ligado</button>
+  </header>
+
+  <section id="s-home" class="stack">
+    <button class="banner" id="btn-banner" type="button" aria-expanded="false" aria-controls="modes">
+      <svg viewBox="0 0 360 210" role="img" aria-label="Modos de jogo">
+        <defs><pattern id="bgrid" width="24" height="24" patternUnits="userSpaceOnUse"><path class="b-grid" d="M24 0H0V24"/></pattern></defs>
+        <rect class="b-bg" width="360" height="210"/>
+        <rect width="360" height="210" fill="url(#bgrid)"/>
+        <g>
+          <rect class="b-tile" x="20" y="18" width="56" height="56" rx="4"/><text class="b-num" x="26" y="31">1</text><text class="b-sym" x="48" y="60" text-anchor="middle">H</text>
+          <rect class="b-tile" x="84" y="18" width="56" height="56" rx="4"/><text class="b-num" x="90" y="31">6</text><text class="b-sym" x="112" y="60" text-anchor="middle">C</text>
+          <rect class="b-tile" x="148" y="18" width="56" height="56" rx="4"/><text class="b-num" x="154" y="31">8</text><text class="b-sym" x="176" y="60" text-anchor="middle">O</text>
+        </g>
+        <text class="b-title" x="20" y="142">Modos</text>
+        <text class="b-title" x="20" y="190">de jogo</text>
+        <path class="b-liq1" d="M269 146H331L344 178Q348 190 336 190H264Q252 190 256 178Z"/>
+        <path class="b-glass" d="M286 70H314V104L344 178Q348 190 336 190H264Q252 190 256 178L286 104Z"/>
+        <circle class="b-bub" cx="300" cy="126" r="6"/>
+        <circle class="b-bub" cx="307" cy="106" r="4"/>
+        <circle class="b-bub" cx="298" cy="90" r="3"/>
+      </svg>
+      <span class="banner-hint"><span>Toque para escolher</span><span aria-hidden="true">↓</span></span>
+    </button>
+    <div class="modes" id="modes" hidden>
+      <button class="mode" id="m-battle" type="button">
+        <span class="mode-top"><span class="mode-name">Batalha Química</span>
+          <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><path class="ic-fill1" d="M7 16V28a5 5 0 0 0 10 0V16Z"/><path class="ic-fill2" d="M23 16V28a5 5 0 0 0 10 0V16Z"/><path class="ic-line" d="M7 6V28a5 5 0 0 0 10 0V6Z"/><path class="ic-line" d="M23 6V28a5 5 0 0 0 10 0V6Z"/></svg>
+        </span>
+        <span class="mode-desc">Responda perguntas de química e esvazie os tubos de vida do adversário.</span>
+        <span class="chips"><span class="chip">2 jogadores</span><span class="chip">Turnos</span></span>
+      </button>
+      <button class="mode" id="m-escape" type="button">
+        <span class="mode-top"><span class="mode-name">Escape da Sala</span>
+          <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><path class="ic-line" d="M12 18v-5a8 8 0 0 1 16 0v5"/><rect class="ic-acid" x="8" y="18" width="24" height="17" rx="3"/><circle cx="20" cy="26" r="2.5" fill="var(--ink)"/></svg>
+        </span>
+        <span class="mode-desc">Balanceie equações, ganhe um frasco de ácido e dissolva a tranca da porta.</span>
+        <span class="chips"><span class="chip">1 jogador</span><span class="chip">10 minutos</span></span>
+      </button>
+      <button class="mode" id="m-fam" type="button">
+        <span class="mode-top"><span class="mode-name">Famílias Periódicas</span>
+          <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><rect class="ic-fill1" x="4" y="4" width="14" height="14" rx="2"/><rect class="ic-fill2" x="22" y="4" width="14" height="14" rx="2"/><rect class="ic-acid" x="4" y="22" width="14" height="14" rx="2"/><rect class="ic-line" x="22" y="22" width="14" height="14" rx="2"/></svg>
+        </span>
+        <span class="mode-desc">Coloque cada elemento na família certa da tabela periódica. Tem música de fundo.</span>
+        <span class="chips"><span class="chip">1 jogador</span><span class="chip">3 níveis</span></span>
+      </button>
+    </div>
+  </section>
+
+  <section id="s-setup" class="stack" hidden>
+    <div class="stack">
+      <h1>Batalha Química</h1>
+      <p class="lead">Dois jogadores, um celular. Respondam perguntas de química e esvaziem os tubos de vida do adversário.</p>
+    </div>
+    <ol class="rules">
+      <li>Cada jogador joga um dado. Quem tirar o maior valor começa.</li>
+      <li>Quem está na vez responde uma pergunta com 3 alternativas.</li>
+      <li>Acertou: o adversário perde 1 tubo. Errou: nada acontece.</li>
+      <li>A vez passa para o outro a cada resposta. Cada um tem 5 tubos.</li>
+    </ol>
+    <div class="names">
+      <label class="field" data-p="0"><span>Jogador 1</span><input id="n1" maxlength="14" autocomplete="off" placeholder="Nome do jogador 1"></label>
+      <label class="field" data-p="1"><span>Jogador 2</span><input id="n2" maxlength="14" autocomplete="off" placeholder="Nome do jogador 2"></label>
+    </div>
+    <button class="btn" id="btn-start" type="button">Começar</button>
+  </section>
+
+  <section id="s-dice" class="stack" hidden>
+    <h2>Quem começa?</h2>
+    <p class="lead" id="dice-msg"></p>
+    <div class="dice">
+      <div class="dcol" data-p="0" id="dc0"><span class="dn" id="dn0"></span><div class="die" id="die0"></div><span class="dv" id="dv0">–</span></div>
+      <div class="dcol" data-p="1" id="dc1"><span class="dn" id="dn1"></span><div class="die" id="die1"></div><span class="dv" id="dv1">–</span></div>
+    </div>
+    <button class="btn" id="btn-roll" type="button">Rolar os dados</button>
+    <button class="btn" id="btn-begin" type="button" hidden></button>
+  </section>
+
+  <section id="s-game" class="stack" hidden>
+    <div class="players">
+      <div class="pl" data-p="0" id="pl0"><div class="phead"><span class="pname" id="pn0"></span><span class="hp" id="hp0"></span></div><div class="tubes" id="tb0"></div></div>
+      <div class="pl" data-p="1" id="pl1"><div class="phead"><span class="pname" id="pn1"></span><span class="hp" id="hp1"></span></div><div class="tubes" id="tb1"></div></div>
+    </div>
+    <div class="card">
+      <div class="who"><span class="dot" id="turn-dot"></span><span>Pergunta para <b id="turn"></b></span></div>
+      <p class="qtext" id="qtext"></p>
+      <div class="opts" id="opts"></div>
+    </div>
+    <div class="fb" id="fb" hidden role="status" aria-live="polite">
+      <p class="fbt" id="fbt"></p>
+      <p id="fbl"></p>
+      <p class="fbe" id="fbe"></p>
+      <button class="btn" id="btn-next" type="button"></button>
+    </div>
+  </section>
+
+  <section id="s-end" class="stack" hidden>
+    <p class="eyebrow">Fim do duelo</p>
+    <h2 id="win-title"></h2>
+    <p class="lead" id="win-sub"></p>
+    <div class="players" id="end-stats"></div>
+    <button class="btn" id="btn-again" type="button">Jogar de novo</button>
+    <button class="btn alt" id="btn-new" type="button">Trocar jogadores</button>
+  </section>
+
+  <section id="s-fam" class="stack" hidden>
+    <div id="fv-level" class="stack">
+      <p class="eyebrow">Famílias Periódicas</p>
+      <h2>Organize a tabela</h2>
+      <p class="lead">Elementos da mesma família ficam na mesma coluna da tabela periódica e têm o mesmo número de elétrons na última camada.</p>
+      <ol class="rules">
+        <li>Toque em um elemento para escolhê-lo.</li>
+        <li>Toque na família dele. Se acertar, ele entra nela.</li>
+        <li>Complete todas as famílias para vencer.</li>
+      </ol>
+      <div class="lvls">
+        <button class="lvl" type="button" data-lv="facil"><span><b>Fácil</b><span class="d">2 famílias, 4 elementos em cada</span></span><span class="n">2</span></button>
+        <button class="lvl" type="button" data-lv="normal"><span><b>Normal</b><span class="d">3 famílias, 4 elementos em cada</span></span><span class="n">3</span></button>
+        <button class="lvl" type="button" data-lv="dificil"><span><b>Difícil</b><span class="d">Todas as famílias, de 1A a 8A</span></span><span class="n">8</span></button>
+      </div>
+    </div>
+
+    <div id="fv-play" class="stack" hidden>
+      <div class="fbar">
+        <div class="fsel"><span class="fseltile" id="f-seltile">?</span><span class="fmsg" id="f-msg" role="status"></span></div>
+        <div class="fstats"><span id="f-prog">0/2 famílias</span><span id="f-err">0 erros</span></div>
+      </div>
+      <div class="ftools">
+        <span class="lv" id="f-lv"></span>
+        <button class="snd" id="f-pt-btn" type="button" aria-expanded="true" aria-controls="f-pt">Tabela: aberta</button>
+        <button class="snd" id="f-mus" type="button" aria-pressed="true">Música: ligada</button>
+        <button class="snd" id="f-levels" type="button">Níveis</button>
+      </div>
+      <div class="pt" id="f-pt">
+        <p class="pt-info" id="pt-info" role="status">Toque num elemento da tabela para ver o nome e a família dele.</p>
+        <div class="pt-grid" id="pt-grid"></div>
+        <p class="pt-note">A coluna de um elemento mostra a família dele. Os números 1A a 8A são as famílias do jogo.</p>
+      </div>
+      <h3 class="sech">Elementos</h3>
+      <div class="pool" id="f-pool"></div>
+      <h3 class="sech">Famílias</h3>
+      <div class="bins" id="f-bins"></div>
+    </div>
+
+    <div id="fv-win" class="stack" hidden>
+      <p class="eyebrow">Tabela organizada</p>
+      <h2>Você venceu!</h2>
+      <p class="lead" id="fw-lead"></p>
+      <div class="sum" id="fw-sum"></div>
+      <button class="btn" id="fw-again" type="button">Jogar de novo</button>
+      <button class="btn alt" id="fw-lv" type="button">Mudar a dificuldade</button>
+      <button class="btn alt" id="fw-menu" type="button">Modos de jogo</button>
+    </div>
+  </section>
+
+  <section id="s-esc" class="stack" hidden>
+    <div class="ebar">
+      <div><div class="elabel">Tempo</div><div class="etime" id="etime">10:00</div></div>
+      <div class="eprog"><div class="elabel">Enigmas</div><div class="etime" id="eprog">0/2</div></div>
+    </div>
+
+    <div id="ev-intro" class="stack">
+      <h2>Escape da Sala</h2>
+      <p class="lead">Você ficou preso no laboratório. Resolva dois enigmas de balanceamento, ganhe um frasco de ácido e dissolva a tranca da porta antes que os 10 minutos acabem.</p>
+      <ol class="rules">
+        <li>Toque no quadro-negro e na bancada para abrir os enigmas.</li>
+        <li>Ajuste os coeficientes até os átomos ficarem iguais nos dois lados.</li>
+        <li>Com os dois enigmas resolvidos, você recebe um frasco de ácido.</li>
+        <li>Toque na tranca da porta para dissolvê-la e sair.</li>
+      </ol>
+      <button class="btn" id="esc-go" type="button">Começar o tempo</button>
+    </div>
+
+    <div id="ev-room" class="stack" hidden>
+      <div class="scene">
+        <svg id="scene" viewBox="0 0 360 240" role="group" aria-label="Laboratório com a porta trancada">
+          <rect class="s-wall" x="0" y="0" width="360" height="215"/>
+          <rect class="s-floor" x="0" y="215" width="360" height="25"/>
+          <path class="s-base" d="M0 215H360"/>
+
+          <g id="hs0" class="hs" tabindex="0" role="button" aria-label="Quadro-negro, enigma 1">
+            <rect class="s-wood2" x="16" y="26" width="132" height="84" rx="4"/>
+            <rect class="s-board" x="22" y="32" width="120" height="72" rx="2"/>
+            <text class="s-chalk" x="82" y="68">? + ? → ?</text>
+            <text class="s-chalk s-small" x="82" y="90">enigma 1</text>
+            <rect class="hs-ring" x="10" y="20" width="144" height="96" rx="6"/>
+            <g class="badge" transform="translate(146 28)"><circle r="11"/><path d="M-5 0L-1 4L5 -4"/></g>
+          </g>
+
+          <g id="hs1" class="hs" tabindex="0" role="button" aria-label="Bancada, enigma 2">
+            <rect class="s-wood" x="14" y="160" width="150" height="12" rx="2"/>
+            <rect class="s-wood2" x="20" y="172" width="138" height="43"/>
+            <path class="s-drawer" d="M89 172V215"/>
+            <text class="s-chalk s-small" x="55" y="199">enigma 2</text>
+            <rect class="s-l1" x="36" y="146" width="26" height="14"/>
+            <path class="s-glass" d="M36 136V160H62V136"/>
+            <path class="s-l2" d="M99 152L96 160H126L123 152Z"/>
+            <path class="s-glass" d="M96 160L104 138V124H118V138L126 160Z"/>
+            <rect class="s-paper" x="134" y="150" width="24" height="10"/>
+            <rect class="hs-ring" x="10" y="116" width="158" height="102" rx="6"/>
+            <g class="badge" transform="translate(160 124)"><circle r="11"/><path d="M-5 0L-1 4L5 -4"/></g>
+          </g>
+
+          <text class="s-exit" x="270" y="32">SAÍDA</text>
+          <rect class="s-doorframe" x="204" y="40" width="132" height="176" rx="3"/>
+          <rect class="s-open" x="212" y="48" width="116" height="168"/>
+          <g id="door-panel">
+            <rect class="s-door" x="212" y="48" width="116" height="168"/>
+            <rect class="s-doorin" x="222" y="58" width="96" height="56" rx="2"/>
+            <rect class="s-doorin" x="222" y="124" width="96" height="82" rx="2"/>
+            <circle class="s-knob" cx="312" cy="118" r="5"/>
+          </g>
+
+          <g id="hs2" class="hs" tabindex="0" role="button" aria-label="Tranca da porta">
+            <path class="s-shackle" d="M292 150V140a9 9 0 0 1 18 0V150"/>
+            <rect class="s-lock" x="287" y="150" width="28" height="22" rx="3"/>
+            <circle class="s-key" cx="301" cy="159" r="3"/>
+            <rect class="s-key" x="300" y="159" width="2" height="8"/>
+            <rect class="hs-ring" x="278" y="124" width="48" height="54" rx="6"/>
+          </g>
+          <g id="bubs">
+            <circle class="bub" cx="293" cy="160" r="4"/>
+            <circle class="bub" cx="304" cy="154" r="3" style="animation-delay:.15s"/>
+            <circle class="bub" cx="298" cy="168" r="3.5" style="animation-delay:.3s"/>
+            <circle class="bub" cx="309" cy="164" r="4" style="animation-delay:.45s"/>
+          </g>
+        </svg>
+      </div>
+      <p class="emsg" id="emsg" role="status"></p>
+      <div class="inv" id="inv" hidden>
+        <svg width="30" height="36" viewBox="0 0 30 36" aria-hidden="true"><path class="ic-acid" d="M9 18H21L27 32Q28 35 25 35H5Q2 35 3 32Z"/><path class="ic-line" d="M11 3H19V13L27 32Q28 35 25 35H5Q2 35 3 32L11 13Z"/></svg>
+        <span>Frasco de ácido no inventário</span>
+      </div>
+    </div>
+
+    <div id="ev-puz" class="stack" hidden>
+      <p class="eyebrow" id="pz-eb"></p>
+      <h2>Balanceie a equação</h2>
+      <p class="lead">Ajuste os coeficientes até o número de átomos ficar igual nos reagentes e nos produtos.</p>
+      <div class="eqline" id="pz-eq"></div>
+      <div class="stack" id="pz-coefs"></div>
+      <div class="cgroup"><h3>Átomos: reagentes e produtos</h3><div class="atoms" id="pz-atoms"></div></div>
+      <p class="pzmsg" id="pz-msg" role="status"></p>
+      <button class="btn" id="pz-check" type="button">Conferir</button>
+      <button class="btn alt" id="pz-back" type="button">Voltar à sala</button>
+    </div>
+
+    <div id="ev-win" class="stack" hidden>
+      <p class="eyebrow">Porta aberta</p>
+      <h2>Você escapou!</h2>
+      <p class="lead" id="win-time"></p>
+      <button class="btn" id="win-again" type="button">Jogar de novo</button>
+      <button class="btn alt" id="win-menu" type="button">Modos de jogo</button>
+    </div>
+
+    <div id="ev-lose" class="stack" hidden>
+      <p class="eyebrow">Fim do tempo</p>
+      <h2>Tempo esgotado</h2>
+      <p class="lead">A porta continua trancada. Tente de novo, com outras equações.</p>
+      <button class="btn" id="lose-again" type="button">Tentar de novo</button>
+      <button class="btn alt" id="lose-menu" type="button">Modos de jogo</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  var $ = function(s){ return document.querySelector(s); };
+  var rnd = function(n){ return Math.floor(Math.random()*n); };
+  function shuffle(a){ a=a.slice(); for(var i=a.length-1;i>0;i--){ var j=rnd(i+1); var t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+  // transforma H2O em H<sub>2</sub>O
+  function sub(s){ return s.replace(/([A-Za-z)])(\d+)/g,'$1<sub>$2</sub>'); }
+  function isF(s){ return /→/.test(s) || /^(?=.*\d|.*[A-Z].*[A-Z])[A-Za-z0-9()]+$/.test(s); }
+
+  // a primeira alternativa de cada pergunta é a correta; a ordem é sorteada na tela
+  var Q = [
+    {q:'Qual é a fórmula do ácido presente no suco gástrico?',o:['HCl','H2SO4','NaOH'],e:'O suco gástrico contém ácido clorídrico (HCl), que ajuda na digestão dos alimentos.'},
+    {q:'Qual é a fórmula da água?',o:['H2O','H2O2','HO2'],e:'Cada molécula de água tem 2 átomos de hidrogênio e 1 de oxigênio.'},
+    {q:'Qual é a fórmula do gás carbônico?',o:['CO2','CO','C2O'],e:'O gás carbônico tem 1 carbono e 2 oxigênios. O CO é o monóxido de carbono.'},
+    {q:'Qual é a fórmula do sal de cozinha (cloreto de sódio)?',o:['NaCl','KCl','NaOH'],e:'O NaCl é formado por sódio (Na) e cloro (Cl).'},
+    {q:'A soda cáustica, usada para desentupir pias, tem qual fórmula?',o:['NaOH','KOH','Na2CO3'],e:'Soda cáustica é o hidróxido de sódio, uma base forte.'},
+    {q:'Qual é a fórmula do ácido sulfúrico?',o:['H2SO4','H2SO3','H2S'],e:'O H2SO4 é o ácido sulfúrico, usado em baterias de carro. O H2SO3 é o ácido sulfuroso.'},
+    {q:'Qual é a fórmula do gás oxigênio que respiramos?',o:['O2','O','O3'],e:'O oxigênio do ar forma moléculas com 2 átomos (O2). O O3 é o ozônio.'},
+    {q:'Qual é a fórmula da água oxigenada?',o:['H2O2','H2O','HO'],e:'A água oxigenada é o peróxido de hidrogênio, com um oxigênio a mais que a água.'},
+    {q:'Qual é a fórmula da amônia, presente em produtos de limpeza?',o:['NH3','NO2','N2'],e:'A amônia tem 1 nitrogênio e 3 hidrogênios.'},
+    {q:'Qual é a fórmula do carbonato de cálcio, componente do calcário e do mármore?',o:['CaCO3','CaO','CaCl2'],e:'O carbonato de cálcio reúne cálcio, carbono e 3 oxigênios.'},
+    {q:'Qual é a fórmula do bicarbonato de sódio?',o:['NaHCO3','Na2CO3','NaCl'],e:'O bicarbonato de sódio é o NaHCO3. O Na2CO3 é o carbonato de sódio.'},
+    {q:'Qual é a fórmula do ácido acético, presente no vinagre?',o:['CH3COOH','HCl','H2CO3'],e:'O vinagre é uma solução de ácido acético em água.'},
+    {q:'Qual é a fórmula da cal virgem (óxido de cálcio)?',o:['CaO','Ca(OH)2','CaCO3'],e:'A cal virgem é o CaO. Ao reagir com água, forma a cal hidratada, Ca(OH)2.'},
+    {q:'Qual é a fórmula do hidróxido de magnésio, base do leite de magnésia usado como antiácido?',o:['Mg(OH)2','MgCl2','MgO'],e:'É uma base fraca que neutraliza o excesso de ácido no estômago.'},
+    {q:'Qual é a fórmula do ácido carbônico, que se forma quando o gás carbônico se dissolve na água do refrigerante?',o:['H2CO3','H2SO4','HNO3'],e:'CO2 + H2O → H2CO3. Por isso o refrigerante é levemente ácido.'},
+    {q:'Quando duas substâncias se combinam e formam uma única substância mais complexa, a reação é de:',o:['Síntese','Decomposição','Simples troca'],e:'Na síntese (ou adição), A + B → AB.'},
+    {q:'2 H2O2 → 2 H2O + O2. Que tipo de reação é essa?',o:['Decomposição','Síntese','Dupla troca'],e:'Uma única substância se divide em duas ou mais. Isso é decomposição (ou análise).'},
+    {q:'Ácido + base → sal + água. Como se chama essa reação?',o:['Neutralização','Combustão','Síntese'],e:'Na neutralização, o ácido e a base se anulam e formam sal e água.'},
+    {q:'Zn + CuSO4 → ZnSO4 + Cu. Que tipo de reação é essa?',o:['Simples troca','Dupla troca','Decomposição'],e:'O zinco desloca o cobre do sal. Por isso é simples troca, também chamada de deslocamento.'},
+    {q:'AgNO3 + NaCl → AgCl + NaNO3. Que tipo de reação é essa?',o:['Dupla troca','Simples troca','Síntese'],e:'Os dois compostos trocam de parceiros entre si.'},
+    {q:'Qual equação representa corretamente a formação da água, já balanceada?',o:['2 H2 + O2 → 2 H2O','H2 + O2 → H2O','H2 + 2 O2 → 2 H2O'],fm:1,e:'Há 4 átomos de H e 2 de O de cada lado da seta.'},
+    {q:'Em N2 + 3 H2 → 2 NH3, qual é o coeficiente do NH3?',o:['2','1','3'],fm:1,e:'O coeficiente é o número escrito antes da fórmula. Aqui é 2.'},
+    {q:'Em 2 H2 + O2 → 2 H2O, quais são os reagentes?',o:['H2 e O2','Apenas H2O','O2 e H2O'],fm:1,e:'Os reagentes ficam antes da seta e são consumidos. A H2O é o produto.'},
+    {q:'Quais são os produtos da combustão completa do metano (CH4)?',o:['CO2 e H2O','CO e H2','C e H2O'],fm:1,e:'CH4 + 2 O2 → CO2 + 2 H2O. A combustão completa de hidrocarbonetos sempre produz CO2 e H2O.'},
+    {q:'Qual lei diz que, em um recipiente fechado, a massa dos reagentes é igual à massa dos produtos?',o:['Lei de Lavoisier','Lei de Proust','Lei de Boyle'],e:'É a lei da conservação das massas, de Lavoisier. A lei de Proust trata das proporções fixas.'},
+    {q:'O que acontece com o ferro exposto ao ar úmido por muito tempo?',o:['Enferruja (oxida)','Neutraliza','Evapora'],e:'O ferro reage com o oxigênio e a água e forma óxidos de ferro, a ferrugem.'},
+    {q:'Qual gás é liberado quando um comprimido efervescente se dissolve na água?',o:['CO2','O2','H2'],e:'O bicarbonato reage com um ácido do comprimido e libera gás carbônico.'},
+    {q:'A fenolftaleína, em meio básico, fica de qual cor?',o:['Rosa','Incolor','Amarela'],e:'Em meio ácido ela é incolor. Em meio básico fica rosa.'},
+    {q:'Uma solução ácida tem pH:',o:['menor que 7','igual a 7','maior que 7'],e:'pH menor que 7 é ácido, igual a 7 é neutro e maior que 7 é básico.'},
+    {q:'Zn + 2 HCl → ZnCl2 + H2. Que gás é liberado nessa reação?',o:['Hidrogênio (H2)','Oxigênio (O2)','Cloro (Cl2)'],e:'O zinco desloca o hidrogênio do ácido, que sai como gás H2.'},
+    {q:'Qual gás, liberado na queima de combustíveis fósseis, contribui para a chuva ácida?',o:['SO2','N2','He'],e:'O SO2 reage com a água da chuva e forma ácidos, como o sulfuroso e o sulfúrico.'},
+    {q:'Na fotossíntese, além da glicose, qual gás é produzido?',o:['O2','CO2','N2'],e:'6 CO2 + 6 H2O → C6H12O6 + 6 O2.'}
+  ];
+
+  var S = {names:['Jogador 1','Jogador 2'],hp:[5,5],turn:0,first:0,deck:[],q:null,order:[],done:false,right:[0,0]};
+  var screens = ['home','setup','dice','game','end','esc','fam'];
+  var cur = 'home';
+  function show(n){
+    cur = n;
+    screens.forEach(function(x){ $('#s-'+x).hidden = x!==n; });
+    $('#btn-menu').hidden = n==='home';
+    window.scrollTo(0,0);
+  }
+
+  /* ---------- sons (sintetizados com Web Audio) ---------- */
+  var AC = null, NB = null, muted = false;
+  function ctx(){
+    try{
+      if(!AC){ var C = window.AudioContext || window.webkitAudioContext; if(C) AC = new C(); }
+      if(AC && AC.state==='suspended') AC.resume();
+    }catch(e){}
+    return AC;
+  }
+  function noiseBuf(c){
+    if(!NB){
+      NB = c.createBuffer(1,Math.floor(c.sampleRate*0.5),c.sampleRate);
+      var d = NB.getChannelData(0);
+      for(var i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+    }
+    return NB;
+  }
+  function burst(t0,dur,vol,freq,q,type){
+    if(muted) return; var c = ctx(); if(!c) return;
+    try{
+      var s = c.createBufferSource(); s.buffer = noiseBuf(c);
+      var f = c.createBiquadFilter(); f.type = type||'bandpass'; f.frequency.value = freq; f.Q.value = q||1;
+      var g = c.createGain(), t = c.currentTime+t0;
+      g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      s.connect(f); f.connect(g); g.connect(c.destination);
+      s.start(t); s.stop(t+dur+0.02);
+    }catch(e){}
+  }
+  function sweep(t0,f1,f2,dur,type,vol){
+    if(muted) return; var c = ctx(); if(!c) return;
+    try{
+      var o = c.createOscillator(), g = c.createGain(), t = c.currentTime+t0;
+      o.type = type; o.frequency.setValueAtTime(f1,t); o.frequency.exponentialRampToValueAtTime(f2,t+dur);
+      g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+dur+0.02);
+    }catch(e){}
+  }
+  function sndClick(){ burst(0,0.04,0.5,1800+rnd(1800),3); }               // dado batendo
+  function sndThud(){ sweep(0,180,60,0.18,'sine',0.7); burst(0,0.08,0.4,900,1); } // dado parando
+  function sndHit(){                                                        // dano
+    sweep(0,520,70,0.35,'sawtooth',0.3);
+    burst(0,0.22,0.6,600,0.8,'lowpass');
+    sweep(0.12,300,50,0.25,'square',0.15);
+  }
+
+  function note(t0,f,dur,vol){ sweep(t0,f,f,dur,'triangle',vol); }
+  function sndSelect(){ note(0,392,0.14,0.28); note(0.1,523,0.14,0.28); note(0.2,784,0.32,0.28); } // escolher jogo
+  function sndOk(){ note(0,523,0.12,0.25); note(0.1,784,0.22,0.25); }
+  function sndBad(){ sweep(0,220,110,0.28,'square',0.15); }
+  function sndWin(){ [523,659,784,1047].forEach(function(f,i){ note(i*0.12,f,0.28,0.25); }); }
+  function sndFizz(){                                                       // ácido dissolvendo
+    burst(0,1.2,0.12,6000,0.6,'highpass');
+    for(var i=0;i<9;i++) burst(i*0.13,0.14,0.28,2500+rnd(4000),2);
+  }
+
+  function sndFamily(){                                                     // família completa
+    [659.25,783.99,987.77,1318.5].forEach(function(f,i){ sweep(i*0.08,f,f,0.3,'sine',0.28); });
+    burst(0.3,0.25,0.1,7000,0.6,'highpass');
+  }
+
+  /* ---------- música de fundo (só no jogo das famílias) ---------- */
+  var MUS = {on:true,run:false,iv:null,next:0,step:0,gain:null};
+  var MSTEP = 60/112/2;
+  var MEL = [659.25,0,783.99,659.25,587.33,0,523.25,0,  659.25,0,880,783.99,659.25,0,587.33,0,
+             523.25,659.25,783.99,659.25,523.25,0,587.33,659.25,  783.99,0,880,783.99,659.25,587.33,523.25,0];
+  var BAS = [130.81,110,87.31,98];
+  function mnote(f,t,d,v,type){
+    var c = AC; if(!c || !MUS.gain) return;
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.linearRampToValueAtTime(v,t+0.015);
+    g.gain.exponentialRampToValueAtTime(0.001,t+d);
+    o.connect(g); g.connect(MUS.gain); o.start(t); o.stop(t+d+0.03);
+  }
+  function musTick(){
+    var c = AC; if(!c || !MUS.run) return;
+    try{
+      while(MUS.next < c.currentTime+0.4){
+        var s = MUS.step%32, m = MEL[s];
+        if(m) mnote(m,MUS.next,MSTEP*1.7,0.9,'triangle');
+        if(s%4===0) mnote(BAS[Math.floor(s/8)]*(s%8===4?2:1),MUS.next,MSTEP*3,1.1,'sine');
+        MUS.next += MSTEP; MUS.step++;
+      }
+    }catch(e){}
+  }
+  function musStart(){
+    if(muted || !MUS.on || MUS.run) return;
+    var c = ctx(); if(!c) return;
+    try{
+      MUS.gain = c.createGain(); MUS.gain.gain.value = 0.07; MUS.gain.connect(c.destination);
+      MUS.run = true; MUS.next = c.currentTime+0.1; MUS.step = 0;
+      MUS.iv = setInterval(musTick,120); musTick();
+    }catch(e){ MUS.run = false; }
+  }
+  function musStop(){
+    clearInterval(MUS.iv); MUS.run = false;
+    var g = MUS.gain; MUS.gain = null;
+    if(g && AC){
+      try{ g.gain.setTargetAtTime(0,AC.currentTime,0.06); }catch(e){}
+      setTimeout(function(){ try{ g.disconnect(); }catch(e){} },600);
+    }
+  }
+
+  /* ---------- dados ---------- */
+  var dieEls = [$('#die0'),$('#die1')];
+  dieEls.forEach(function(d){ for(var i=0;i<9;i++) d.appendChild(document.createElement('i')); });
+  var PIPS = {0:[],1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
+  function setFace(i,v){
+    var c = dieEls[i].children;
+    for(var k=0;k<9;k++) c[k].classList.toggle('on',PIPS[v].indexOf(k)>-1);
+    $('#dv'+i).textContent = v || '–';
+  }
+  function goDice(){
+    [0,1].forEach(function(i){
+      $('#dn'+i).textContent = S.names[i];
+      setFace(i,0);
+      $('#dc'+i).classList.remove('win');
+      dieEls[i].classList.remove('rolling');
+    });
+    $('#dice-msg').textContent = 'Cada jogador joga um dado. Quem tirar o maior valor começa.';
+    var b = $('#btn-roll'); b.hidden=false; b.disabled=false; b.textContent='Rolar os dados';
+    $('#btn-begin').hidden = true;
+    show('dice');
+  }
+  function roll(){
+    var b = $('#btn-roll'); b.disabled = true;
+    [0,1].forEach(function(i){ $('#dc'+i).classList.remove('win'); });
+    var r = [rnd(6)+1, rnd(6)+1];
+    function fin(){
+      dieEls.forEach(function(d){ d.classList.remove('rolling'); });
+      setFace(0,r[0]); setFace(1,r[1]);
+      sndThud();
+      if(r[0]===r[1]){
+        $('#dice-msg').textContent = 'Empate: os dois tiraram '+r[0]+'. Rolem de novo.';
+        b.textContent = 'Rolar de novo'; b.disabled = false; return;
+      }
+      S.first = r[0]>r[1] ? 0 : 1;
+      $('#dc'+S.first).classList.add('win');
+      $('#dice-msg').textContent = S.names[S.first]+' tirou '+r[S.first]+' contra '+r[1-S.first]+' e começa.';
+      b.hidden = true;
+      var bb = $('#btn-begin'); bb.textContent = 'Começar com '+S.names[S.first]; bb.hidden = false;
+    }
+    if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches){ fin(); return; }
+    dieEls.forEach(function(d){ d.classList.add('rolling'); });
+    var t = 0;
+    var iv = setInterval(function(){
+      setFace(0,rnd(6)+1); setFace(1,rnd(6)+1);
+      sndClick();
+      if(++t>=10){ clearInterval(iv); fin(); }
+    },90);
+  }
+
+  /* ---------- jogo ---------- */
+  function buildHud(){
+    [0,1].forEach(function(i){
+      $('#pn'+i).textContent = S.names[i];
+      var tb = $('#tb'+i); tb.innerHTML = '';
+      for(var k=0;k<5;k++){ var t=document.createElement('div'); t.className='tube'; t.appendChild(document.createElement('i')); tb.appendChild(t); }
+    });
+    updateHud();
+  }
+  function updateHud(){
+    [0,1].forEach(function(i){
+      var tubes = $('#tb'+i).children;
+      for(var k=0;k<tubes.length;k++) tubes[k].classList.toggle('empty',k>=S.hp[i]);
+      $('#hp'+i).textContent = S.hp[i]+'/5';
+      $('#pl'+i).classList.toggle('active',S.turn===i);
+    });
+  }
+  function begin(){
+    S.hp=[5,5]; S.right=[0,0]; S.turn=S.first;
+    buildHud(); show('game'); nextQ();
+  }
+  function nextQ(){
+    if(!S.deck.length) S.deck = shuffle(Q.map(function(_,i){ return i; }));
+    S.q = Q[S.deck.pop()];
+    S.order = shuffle([0,1,2]);
+    S.done = false;
+    updateHud();
+    $('#turn').textContent = S.names[S.turn];
+    $('#turn-dot').style.background = 'var(--p'+(S.turn+1)+')';
+    $('#qtext').innerHTML = sub(S.q.q);
+    var fm = S.q.fm || S.q.o.some(isF);
+    var box = $('#opts'); box.innerHTML = '';
+    S.order.forEach(function(oi,pos){
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'opt'+(fm?' fm':'');
+      b.innerHTML = '<span class="ltr">'+'ABC'.charAt(pos)+'</span><span class="otx">'+sub(S.q.o[oi])+'</span>';
+      b.addEventListener('click',function(){ answer(pos); });
+      box.appendChild(b);
+    });
+    $('#fb').hidden = true;
+    window.scrollTo(0,0);
+  }
+  function answer(pos){
+    if(S.done) return; S.done = true;
+    var btns = [].slice.call($('#opts').children);
+    var right = S.order.indexOf(0);
+    var ok = pos===right;
+    btns.forEach(function(b,i){ b.disabled = true; b.classList.add(i===right ? 'ok' : (i===pos ? 'bad' : 'dim')); });
+    var p = S.turn, o = 1-p;
+    var fb = $('#fb'), line = $('#fbl');
+    fb.className = 'fb '+(ok?'ok':'bad');
+    if(ok){
+      S.hp[o]--; S.right[p]++;
+      sndHit();
+      $('#fbt').textContent = 'Acertou!';
+      line.textContent = S.names[o]+' perde 1 tubo de vida.';
+      var tile = $('#pl'+o); tile.classList.remove('hit'); void tile.offsetWidth; tile.classList.add('hit');
+      setTimeout(function(){ tile.classList.remove('hit'); },600);
+    } else {
+      $('#fbt').textContent = 'Errou.';
+      line.innerHTML = 'A resposta certa era <b>'+sub(S.q.o[0])+'</b>. Nenhum dano desta vez.';
+    }
+    $('#fbe').innerHTML = sub(S.q.e);
+    updateHud();
+    var over = S.hp[o]===0;
+    $('#btn-next').textContent = over ? 'Ver resultado' : 'Passar a vez para '+S.names[o];
+    fb.hidden = false;
+    fb.scrollIntoView({block:'nearest'});
+  }
+  function end(){
+    var w = S.hp[0]>0 ? 0 : 1, l = 1-w;
+    $('#win-title').textContent = S.names[w]+' venceu!';
+    $('#win-sub').textContent = S.names[l]+' ficou sem tubos de vida.';
+    var box = $('#end-stats'); box.innerHTML = '';
+    [0,1].forEach(function(i){
+      var d = document.createElement('div'); d.className = 'pl'+(i===w?' active':''); d.setAttribute('data-p',i);
+      var n = document.createElement('span'); n.className = 'pname'; n.textContent = S.names[i];
+      var s = document.createElement('div'); s.className = 'stat';
+      var a = document.createElement('span'); a.className = 'hp'; a.textContent = 'Tubos: '+S.hp[i]+'/5';
+      var c = document.createElement('span'); c.className = 'hp'; c.textContent = 'Acertos: '+S.right[i];
+      s.appendChild(a); s.appendChild(c); d.appendChild(n); d.appendChild(s); box.appendChild(d);
+    });
+    show('end');
+  }
+
+  /* ---------- escape da sala ---------- */
+  var EQS = [
+    {r:['H2','O2'],p:['H2O']},
+    {r:['N2','H2'],p:['NH3']},
+    {r:['Na','Cl2'],p:['NaCl']},
+    {r:['Mg','O2'],p:['MgO']},
+    {r:['H2','Cl2'],p:['HCl']},
+    {r:['Ca','O2'],p:['CaO']},
+    {r:['Zn','HCl'],p:['ZnCl2','H2']},
+    {r:['CH4','O2'],p:['CO2','H2O']}
+  ];
+  var TOTAL = 600000; // 10 minutos
+  var E = {running:false,deadline:0,iv:null,solved:[false,false],eq:[null,null],flask:false,cur:0,coef:[],outs:[],left:0,gen:0};
+  var evs = ['intro','room','puz','win','lose'];
+  function evShow(n){ evs.forEach(function(x){ $('#ev-'+x).hidden = x!==n; }); window.scrollTo(0,0); }
+  function fmt(ms){ var s = Math.max(0,Math.ceil(ms/1000)); var m = Math.floor(s/60); s = s%60; return (m<10?'0':'')+m+':'+(s<10?'0':'')+s; }
+  function setMsg(t){ $('#emsg').textContent = t; }
+  function pzMsg(t,k){ var m = $('#pz-msg'); m.textContent = t; m.className = 'pzmsg '+(k||''); }
+
+  function escReset(){
+    clearInterval(E.iv); E.running = false; E.gen++;
+    E.solved = [false,false]; E.flask = false;
+    var pool = shuffle(EQS); E.eq = [pool[0],pool[1]];
+    $('#hs0').classList.remove('done'); $('#hs1').classList.remove('done');
+    $('#hs2').classList.remove('ready','melt');
+    $('#scene').classList.remove('open','fizz');
+    $('#etime').textContent = fmt(TOTAL); $('#etime').classList.remove('low');
+    $('#eprog').textContent = '0/2'; $('#inv').hidden = true;
+    setMsg('Toque no quadro-negro ou na bancada para ver um enigma.');
+    evShow('intro');
+  }
+  function escStart(){
+    E.running = true; E.deadline = Date.now()+TOTAL;
+    clearInterval(E.iv); E.iv = setInterval(tick,250); tick();
+    evShow('room');
+  }
+  function tick(){
+    if(!E.running) return;
+    var left = E.deadline-Date.now(); E.left = left;
+    if(left<=0){ lose(); return; }
+    $('#etime').textContent = fmt(left);
+    $('#etime').classList.toggle('low',left<60000);
+  }
+  function lose(){
+    E.running = false; clearInterval(E.iv);
+    $('#etime').textContent = '00:00'; $('#etime').classList.add('low');
+    sndBad(); evShow('lose');
+  }
+  function leave(){ E.running = false; clearInterval(E.iv); E.gen++; show('home'); }
+
+  function atomsOf(list,coef,off){
+    var m = {};
+    list.forEach(function(f,i){
+      f.replace(/([A-Z][a-z]?)(\d*)/g,function(_,el,n){ m[el] = (m[el]||0)+coef[off+i]*(n?+n:1); return ''; });
+    });
+    return m;
+  }
+  function openPuz(i){
+    if(!E.running) return;
+    if(E.solved[i]){ setMsg('Esse enigma já está resolvido.'); return; }
+    E.cur = i;
+    var q = E.eq[i];
+    E.coef = q.r.concat(q.p).map(function(){ return 1; });
+    $('#pz-eb').textContent = (i===0?'Quadro-negro':'Bancada')+' · enigma '+(i+1)+' de 2';
+    buildPuz(); renderPuz(); pzMsg('');
+    evShow('puz');
+  }
+  function buildPuz(){
+    var q = E.eq[E.cur], nr = q.r.length, box = $('#pz-coefs');
+    box.innerHTML = ''; E.outs = [];
+    [['Reagentes',q.r,0],['Produtos',q.p,nr]].forEach(function(g){
+      var wrap = document.createElement('div'); wrap.className = 'cgroup';
+      var h = document.createElement('h3'); h.textContent = g[0]; wrap.appendChild(h);
+      g[1].forEach(function(f,i){
+        var idx = g[2]+i;
+        var row = document.createElement('div'); row.className = 'crow';
+        var cf = document.createElement('span'); cf.className = 'cf'; cf.innerHTML = sub(f);
+        var st = document.createElement('div'); st.className = 'step';
+        function mk(label,d,aria){
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+          b.setAttribute('aria-label',aria+' o coeficiente de '+f);
+          b.addEventListener('click',function(){
+            E.coef[idx] = Math.min(9,Math.max(1,E.coef[idx]+d));
+            sndClick(); renderPuz(); pzMsg('');
+          });
+          return b;
+        }
+        var out = document.createElement('output'); out.textContent = '1'; E.outs[idx] = out;
+        st.appendChild(mk('−',-1,'Diminuir')); st.appendChild(out); st.appendChild(mk('+',1,'Aumentar'));
+        row.appendChild(cf); row.appendChild(st); wrap.appendChild(row);
+      });
+      box.appendChild(wrap);
+    });
+  }
+  function renderPuz(){
+    var q = E.eq[E.cur], nr = q.r.length;
+    function term(f,c){ return (c>1?c+' ':'')+sub(f); }
+    $('#pz-eq').innerHTML = q.r.map(function(f,i){ return term(f,E.coef[i]); }).join(' + ')
+      + ' → ' + q.p.map(function(f,i){ return term(f,E.coef[nr+i]); }).join(' + ');
+    E.outs.forEach(function(o,i){ o.textContent = E.coef[i]; });
+    var A = atomsOf(q.r,E.coef,0), B = atomsOf(q.p,E.coef,nr), box = $('#pz-atoms');
+    box.innerHTML = '';
+    Object.keys(A).forEach(function(k){
+      var same = A[k]===B[k];
+      var s = document.createElement('span'); s.className = 'atom '+(same?'ok':'no');
+      s.textContent = k+'  '+A[k]+(same?' = ':' ≠ ')+(B[k]||0);
+      box.appendChild(s);
+    });
+  }
+  function pzCheck(){
+    var q = E.eq[E.cur], nr = q.r.length;
+    var A = atomsOf(q.r,E.coef,0), B = atomsOf(q.p,E.coef,nr);
+    var bal = Object.keys(A).every(function(k){ return A[k]===B[k]; });
+    function g(a,b){ return b ? g(b,a%b) : a; }
+    var gg = E.coef.reduce(g,0);
+    if(!bal){ pzMsg('Ainda não está balanceada. Veja os átomos marcados com ≠.','no'); sndBad(); return; }
+    if(gg>1){ pzMsg('Os átomos batem, mas dá para usar números menores. Divida todos os coeficientes pelo mesmo número.','no'); sndBad(); return; }
+    solve();
+  }
+  function solve(){
+    E.solved[E.cur] = true;
+    $('#hs'+E.cur).classList.add('done');
+    var n = E.solved.filter(Boolean).length;
+    $('#eprog').textContent = n+'/2';
+    sndOk();
+    if(n===2){
+      E.flask = true; $('#hs2').classList.add('ready'); $('#inv').hidden = false;
+      setMsg('Você ganhou um frasco de ácido! Toque na tranca da porta para dissolvê-la.');
+    } else {
+      setMsg('Enigma resolvido! Agora vá para '+(E.cur===0?'a bancada.':'o quadro-negro.'));
+    }
+    evShow('room');
+  }
+  function useLock(){
+    if(!E.running) return;
+    if(!E.flask){ setMsg('A tranca é resistente. Resolva os dois enigmas para conseguir algo que a dissolva.'); sndBad(); return; }
+    var gen = E.gen;
+    E.flask = false; E.running = false; clearInterval(E.iv);
+    E.left = Math.max(0,E.deadline-Date.now());
+    $('#inv').hidden = true;
+    $('#hs2').classList.remove('ready'); $('#hs2').classList.add('melt');
+    $('#scene').classList.add('fizz');
+    sndFizz(); setMsg('O ácido está dissolvendo a tranca...');
+    setTimeout(function(){ if(E.gen===gen){ $('#scene').classList.remove('fizz'); $('#scene').classList.add('open'); } },1300);
+    setTimeout(function(){
+      if(E.gen!==gen) return;
+      $('#win-time').textContent = 'Tempo gasto: '+fmt(TOTAL-E.left)+'. Sobraram '+fmt(E.left)+'.';
+      sndWin(); evShow('win');
+    },2700);
+  }
+
+  /* ---------- eventos ---------- */
+  $('#btn-start').addEventListener('click',function(){
+    var a = $('#n1').value.trim() || 'Jogador 1';
+    var b = $('#n2').value.trim() || 'Jogador 2';
+    if(a.toLowerCase()===b.toLowerCase()){ a += ' (1)'; b += ' (2)'; }
+    S.names = [a,b];
+    goDice();
+  });
+  $('#btn-snd').addEventListener('click',function(){
+    muted = !muted;
+    this.textContent = muted ? 'Som: desligado' : 'Som: ligado';
+    this.setAttribute('aria-pressed',muted ? 'false' : 'true');
+    if(muted) musStop(); else { sndClick(); if(cur==='fam' && F.playing) musStart(); }
+  });
+  $('#btn-roll').addEventListener('click',roll);
+  $('#btn-begin').addEventListener('click',begin);
+  $('#btn-next').addEventListener('click',function(){
+    if(S.hp[0]===0 || S.hp[1]===0){ end(); return; }
+    S.turn = 1-S.turn; nextQ();
+  });
+  $('#btn-again').addEventListener('click',goDice);
+  $('#btn-new').addEventListener('click',function(){ show('setup'); });
+
+  /* ---------- famílias periódicas ---------- */
+  // a lista de cada família começa pelos elementos mais conhecidos
+  var FAMS = [
+    {g:'1A',n:'Metais alcalinos',h:'1 elétron na última camada',f:'Os metais alcalinos são macios e reagem com a água.',
+      els:[['Li','Lítio',3],['Na','Sódio',11],['K','Potássio',19],['Cs','Césio',55],['Rb','Rubídio',37]]},
+    {g:'2A',n:'Alcalinoterrosos',h:'2 elétrons na última camada',f:'O cálcio está nos ossos, nos dentes e no calcário.',
+      els:[['Mg','Magnésio',12],['Ca','Cálcio',20],['Be','Berílio',4],['Ba','Bário',56],['Sr','Estrôncio',38],['Ra','Rádio',88]]},
+    {g:'3A',n:'Família do boro',h:'3 elétrons na última camada',f:'O alumínio é o metal mais abundante da crosta terrestre.',
+      els:[['B','Boro',5],['Al','Alumínio',13],['Ga','Gálio',31],['In','Índio',49],['Tl','Tálio',81]]},
+    {g:'4A',n:'Família do carbono',h:'4 elétrons na última camada',f:'O carbono é a base da química orgânica e o silício está na areia e nos chips.',
+      els:[['C','Carbono',6],['Si','Silício',14],['Sn','Estanho',50],['Pb','Chumbo',82],['Ge','Germânio',32]]},
+    {g:'5A',n:'Família do nitrogênio',h:'5 elétrons na última camada',f:'O nitrogênio forma cerca de 78% do ar que respiramos.',
+      els:[['N','Nitrogênio',7],['P','Fósforo',15],['As','Arsênio',33],['Sb','Antimônio',51],['Bi','Bismuto',83]]},
+    {g:'6A',n:'Calcogênios',h:'6 elétrons na última camada',f:'O oxigênio que respiramos e o enxofre dos vulcões são calcogênios.',
+      els:[['O','Oxigênio',8],['S','Enxofre',16],['Se','Selênio',34],['Te','Telúrio',52],['Po','Polônio',84]]},
+    {g:'7A',n:'Halogênios',h:'7 elétrons na última camada',f:'O cloro, um halogênio, desinfeta a água das piscinas.',
+      els:[['F','Flúor',9],['Cl','Cloro',17],['Br','Bromo',35],['I','Iodo',53],['At','Astato',85]]},
+    {g:'8A',n:'Gases nobres',h:'Última camada completa',f:'Os gases nobres quase não reagem. O hélio, por exemplo, enche balões.',
+      els:[['He','Hélio',2],['Ne','Neônio',10],['Ar','Argônio',18],['Kr','Criptônio',36],['Xe','Xenônio',54],['Rn','Radônio',86]]}
+  ];
+  var LV = {
+    facil:  {name:'Fácil',  nf:2,per:4,top:4,cols:2,pool:['1A','2A','7A','8A']},
+    normal: {name:'Normal', nf:3,per:4,top:5,cols:1,pool:null},
+    dificil:{name:'Difícil',nf:8,per:3,top:6,cols:2,pool:null}
+  };
+  /* ---------- mini tabela periódica ---------- */
+  var PT = {built:false,open:true};
+  var PTS = ('H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe '
+    + 'Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr '
+    + 'Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og').split(' ');
+  var PTN = ('Hidrogênio|Hélio|Lítio|Berílio|Boro|Carbono|Nitrogênio|Oxigênio|Flúor|Neônio|Sódio|Magnésio|Alumínio|Silício|Fósforo|Enxofre|Cloro|Argônio|'
+    + 'Potássio|Cálcio|Escândio|Titânio|Vanádio|Cromo|Manganês|Ferro|Cobalto|Níquel|Cobre|Zinco|Gálio|Germânio|Arsênio|Selênio|Bromo|Criptônio|'
+    + 'Rubídio|Estrôncio|Ítrio|Zircônio|Nióbio|Molibdênio|Tecnécio|Rutênio|Ródio|Paládio|Prata|Cádmio|Índio|Estanho|Antimônio|Telúrio|Iodo|Xenônio|'
+    + 'Césio|Bário|Lantânio|Cério|Praseodímio|Neodímio|Promécio|Samário|Európio|Gadolínio|Térbio|Disprósio|Hólmio|Érbio|Túlio|Itérbio|Lutécio|'
+    + 'Háfnio|Tântalo|Tungstênio|Rênio|Ósmio|Irídio|Platina|Ouro|Mercúrio|Tálio|Chumbo|Bismuto|Polônio|Astato|Radônio|'
+    + 'Frâncio|Rádio|Actínio|Tório|Protactínio|Urânio|Netúnio|Plutônio|Amerício|Cúrio|Berquélio|Califórnio|Einstêinio|Férmio|Mendelévio|Nobélio|Laurêncio|'
+    + 'Rutherfórdio|Dúbnio|Seabórgio|Bóhrio|Hássio|Meitnério|Darmstácio|Roentgênio|Copernício|Nihônio|Fleróvio|Moscóvio|Livermório|Tenessino|Oganésson').split('|');
+  // posição [linha, coluna] na tabela de 18 colunas; linhas 9 e 10 são lantanídeos e actinídeos
+  function ptPos(z){
+    if(z===1) return [1,1]; if(z===2) return [1,18];
+    if(z<=4) return [2,z-2]; if(z<=10) return [2,z+8];
+    if(z<=12) return [3,z-10]; if(z<=18) return [3,z];
+    if(z<=36) return [4,z-18]; if(z<=54) return [5,z-36];
+    if(z<=56) return [6,z-54]; if(z<=70) return [9,z-54]; if(z<=86) return [6,z-68];
+    if(z<=88) return [7,z-86]; if(z<=102) return [10,z-86];
+    return [7,z-100];
+  }
+  function ptG(z){
+    var p = ptPos(z);
+    if(z===1 || p[0]>=9) return null;
+    if(p[1]<=2) return p[1]+'A';
+    if(p[1]>=13) return (p[1]-10)+'A';
+    return null;
+  }
+  function ptInfo(z){
+    var p = ptPos(z), g = ptG(z);
+    var head = '<b>'+PTS[z-1]+'</b> · '+PTN[z-1]+' · nº '+z+'<br>';
+    if(z===1) return head+'Fica na coluna 1A, mas não é metal alcalino.';
+    if(g){ var f = FAMS.filter(function(x){ return x.g===g; })[0]; return head+'Família '+g+': '+f.n+'.'; }
+    if(p[0]===9) return head+'Lantanídeo, fora das famílias A.';
+    if(p[0]===10) return head+'Actinídeo, fora das famílias A.';
+    return head+'Metal de transição (famílias B).';
+  }
+  function ptBuild(){
+    if(PT.built) return; PT.built = true;
+    var box = $('#pt-grid');
+    [[1,'1A'],[2,'2A'],[13,'3A'],[14,'4A'],[15,'5A'],[16,'6A'],[17,'7A'],[18,'8A']].forEach(function(h){
+      var s = document.createElement('span'); s.className = 'pt-h'; s.textContent = h[1];
+      s.style.gridRow = 1; s.style.gridColumn = h[0]; box.appendChild(s);
+    });
+    for(var z=1;z<=118;z++){
+      var p = ptPos(z), g = ptG(z);
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'pt-c'+(g?' a':'');
+      b.textContent = PTS[z-1]; b.setAttribute('data-z',z); if(g) b.setAttribute('data-g',g);
+      b.setAttribute('aria-label',PTN[z-1]+', número atômico '+z);
+      b.style.gridRow = p[0]+1; b.style.gridColumn = p[1];
+      box.appendChild(b);
+    }
+    box.addEventListener('click',function(e){
+      var b = e.target.closest('.pt-c'); if(b) ptSelect(+b.getAttribute('data-z'));
+    });
+  }
+  function ptMark(z){
+    var g = z ? ptG(z) : null;
+    [].forEach.call(document.querySelectorAll('#pt-grid .pt-c'),function(c){
+      var cz = +c.getAttribute('data-z');
+      c.classList.toggle('sel',cz===z);
+      c.classList.toggle('fam',!!g && cz!==z && c.getAttribute('data-g')===g);
+    });
+  }
+  function ptSelect(z){ sndClick(); ptMark(z); $('#pt-info').innerHTML = ptInfo(z); }
+  function ptSync(){
+    $('#f-pt').hidden = !PT.open;
+    var b = $('#f-pt-btn');
+    b.textContent = 'Tabela: '+(PT.open ? 'aberta' : 'fechada');
+    b.setAttribute('aria-expanded',PT.open ? 'true' : 'false');
+  }
+  function ptReset(){
+    ptBuild(); ptMark(0);
+    $('#pt-info').textContent = 'Toque num elemento da tabela para ver o nome e a família dele.';
+    ptSync();
+  }
+
+  var F = {lvl:'facil',fams:[],tiles:[],sel:null,errs:0,placed:0,fdone:0,playing:false,gen:0};
+  var fvs = ['level','play','win'];
+  function fvShow(n){ fvs.forEach(function(x){ $('#fv-'+x).hidden = x!==n; }); window.scrollTo(0,0); }
+  function famSay(t){ $('#f-msg').textContent = t; }
+  function famStop(){ F.playing = false; F.gen++; musStop(); }
+  function famReset(){ famStop(); fvShow('level'); }
+
+  function famStart(key){
+    var L = LV[key];
+    F.lvl = key; F.errs = 0; F.placed = 0; F.fdone = 0; F.sel = null; F.gen++;
+    var ids = L.pool || FAMS.map(function(f){ return f.g; });
+    var chosen = shuffle(ids).slice(0,L.nf);
+    F.fams = FAMS.filter(function(f){ return chosen.indexOf(f.g)>-1; }).map(function(f){
+      return {g:f.g,n:f.n,h:f.h,f:f.f,els:shuffle(f.els.slice(0,L.top)).slice(0,L.per),got:0,done:false};
+    });
+    var t = [];
+    F.fams.forEach(function(f){
+      f.els.forEach(function(e){ t.push({s:e[0],n:e[1],z:e[2],g:f.g,placed:false}); });
+    });
+    F.tiles = shuffle(t);
+    $('#f-lv').textContent = L.name+' · '+L.nf+(L.nf===1?' família':' famílias');
+    famBuild(); famSync(); ptReset();
+    famSay('Toque em um elemento e depois na família dele.');
+    F.playing = true;
+    fvShow('play');
+    musStart();
+  }
+  function famBuild(){
+    var box = $('#f-bins'); box.innerHTML = '';
+    box.style.setProperty('--c',LV[F.lvl].cols);
+    F.fams.forEach(function(f,fi){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'bin';
+      b.setAttribute('aria-label','Família '+f.g+', '+f.n);
+      b.innerHTML = '<span class="bin-top"><span class="gnum">'+f.g+'</span><span class="gname">'+f.n+'</span></span>'
+        + '<span class="ghint">'+f.h+'</span>'
+        + '<span class="foot"><span class="slots"></span><span class="gcount">0/'+f.els.length+'</span></span>';
+      b.addEventListener('click',function(){ famPlace(fi); });
+      box.appendChild(b);
+    });
+  }
+  function famSync(){
+    var pool = $('#f-pool'); pool.innerHTML = '';
+    F.tiles.forEach(function(t,i){
+      if(t.placed) return;
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = 'etile'+(F.sel===i?' sel':''); b.setAttribute('data-i',i);
+      b.setAttribute('aria-label',t.n+', número atômico '+t.z);
+      b.setAttribute('aria-pressed',F.sel===i?'true':'false');
+      b.innerHTML = '<span class="z">'+t.z+'</span><span class="s">'+t.s+'</span><span class="nm">'+t.n+'</span>';
+      b.addEventListener('click',function(){ famSelect(i); });
+      pool.appendChild(b);
+    });
+    var st = F.sel===null ? null : F.tiles[F.sel];
+    var tl = $('#f-seltile'); tl.textContent = st ? st.s : '?'; tl.classList.toggle('on',!!st);
+    $('#f-prog').textContent = F.fdone+'/'+F.fams.length+' famílias';
+    $('#f-err').textContent = F.errs+(F.errs===1?' erro':' erros');
+    var bins = $('#f-bins').children;
+    for(var i=0;i<bins.length;i++) bins[i].classList.toggle('ready',!!st && !F.fams[i].done);
+  }
+  function famSelect(i){
+    if(!F.playing) return;
+    F.sel = F.sel===i ? null : i;
+    sndClick(); famSync();
+    var t = F.sel===null ? null : F.tiles[F.sel];
+    famSay(t ? t.n+' ('+t.s+') escolhido. Toque na família dele.' : 'Toque em um elemento e depois na família dele.');
+  }
+  function famPlace(fi){
+    if(!F.playing) return;
+    var fam = F.fams[fi], bin = $('#f-bins').children[fi];
+    if(F.sel===null){ famSay('Primeiro toque em um elemento, depois na família.'); return; }
+    if(fam.done){ famSay('A família '+fam.g+' já está completa. Escolha outra.'); return; }
+    var i = F.sel, t = F.tiles[i];
+    if(t.g===fam.g){
+      t.placed = true; F.sel = null; F.placed++; fam.got++;
+      var chip = document.createElement('span'); chip.className = 'pe';
+      chip.innerHTML = t.s+'<small>'+t.n+'</small>';
+      bin.querySelector('.slots').appendChild(chip);
+      bin.querySelector('.gcount').textContent = fam.got+'/'+fam.els.length;
+      if(fam.got===fam.els.length){
+        fam.done = true; F.fdone++; bin.classList.add('done');
+        sndFamily(); famSay('Família completa! '+fam.f);
+      } else {
+        sndOk(); famSay('Certo! '+t.n+' está na família '+fam.g+'.');
+      }
+      famSync();
+      if(F.placed===F.tiles.length) famWin();
+    } else {
+      F.errs++; sndBad();
+      famSay(t.n+' ('+t.s+') não é da família '+fam.g+' ('+fam.n+'). Tente outra.');
+      famSync();
+      var te = $('#f-pool [data-i="'+i+'"]');
+      if(te){ te.classList.add('shake'); setTimeout(function(){ te.classList.remove('shake'); },500); }
+      bin.classList.add('no'); setTimeout(function(){ bin.classList.remove('no'); },500);
+    }
+  }
+  function famWin(){
+    var gen = F.gen;
+    setTimeout(function(){
+      if(F.gen!==gen) return;
+      F.playing = false; musStop();
+      $('#fw-lead').textContent = (F.errs===0 ? 'Sem nenhum erro.' : F.errs+(F.errs===1?' erro':' erros')+' no caminho.')
+        + ' Todos os elementos estão na família certa.';
+      var box = $('#fw-sum'); box.innerHTML = '';
+      F.fams.forEach(function(f){
+        var syms = f.els.slice().sort(function(a,b){ return a[2]-b[2]; }).map(function(e){ return e[0]; }).join(', ');
+        var r = document.createElement('div'); r.className = 'sumrow';
+        r.innerHTML = '<span class="gnum">'+f.g+'</span><div><b>'+f.n+'</b><div class="sumel">'+syms+'</div></div>';
+        box.appendChild(r);
+      });
+      sndWin(); fvShow('win');
+    },900);
+  }
+  [].forEach.call(document.querySelectorAll('.lvl'),function(b){
+    b.addEventListener('click',function(){ sndClick(); famStart(b.getAttribute('data-lv')); });
+  });
+  $('#f-mus').addEventListener('click',function(){
+    MUS.on = !MUS.on;
+    this.textContent = 'Música: '+(MUS.on ? 'ligada' : 'desligada');
+    this.setAttribute('aria-pressed',MUS.on ? 'true' : 'false');
+    if(MUS.on){ if(F.playing) musStart(); } else musStop();
+  });
+  $('#f-pt-btn').addEventListener('click',function(){ PT.open = !PT.open; sndClick(); ptSync(); });
+  $('#f-levels').addEventListener('click',famReset);
+  $('#fw-again').addEventListener('click',function(){ famStart(F.lvl); });
+  $('#fw-lv').addEventListener('click',famReset);
+  $('#fw-menu').addEventListener('click',function(){ famStop(); leave(); });
+  $('#m-fam').addEventListener('click',function(){ pick(function(){ famReset(); show('fam'); }); });
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden) musStop();
+    else if(F.playing && cur==='fam') musStart();
+  });
+
+  // tela inicial: o banner revela os jogos
+  $('#btn-banner').addEventListener('click',function(){
+    var m = $('#modes');
+    if(!m.hidden) return;
+    m.hidden = false;
+    this.setAttribute('aria-expanded','true');
+    this.querySelector('.banner-hint span').textContent = 'Escolha um jogo';
+    sndClick();
+    m.scrollIntoView({block:'nearest'});
+  });
+  function pick(fn){ sndSelect(); setTimeout(fn,280); }
+  $('#m-battle').addEventListener('click',function(){ pick(function(){ show('setup'); }); });
+  $('#m-escape').addEventListener('click',function(){ pick(function(){ escReset(); show('esc'); }); });
+
+  // botão Menu: dentro de uma partida pede um segundo toque
+  var menuT = null;
+  function menuReset(){ clearTimeout(menuT); menuT = null; $('#btn-menu').textContent = 'Menu'; }
+  $('#btn-menu').addEventListener('click',function(){
+    var risky = cur==='game' || (cur==='esc' && E.running) || (cur==='fam' && F.playing);
+    if(risky && !menuT){
+      this.textContent = 'Sair?'; menuT = setTimeout(menuReset,3000); return;
+    }
+    menuReset(); famStop(); leave();
+  });
+
+  // escape da sala
+  $('#esc-go').addEventListener('click',escStart);
+  [0,1,2].forEach(function(i){
+    var el = $('#hs'+i);
+    var fn = function(){ if(i===2) useLock(); else openPuz(i); };
+    el.addEventListener('click',fn);
+    el.addEventListener('keydown',function(e){ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); fn(); } });
+  });
+  $('#pz-check').addEventListener('click',pzCheck);
+  $('#pz-back').addEventListener('click',function(){ evShow('room'); });
+  $('#win-again').addEventListener('click',escReset);
+  $('#lose-again').addEventListener('click',escReset);
+  $('#win-menu').addEventListener('click',leave);
+  $('#lose-menu').addEventListener('click',leave);
+
+  show('home');
+})();
+</script>
+</body>
+</html>
